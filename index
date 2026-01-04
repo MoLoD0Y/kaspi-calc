@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kaspi & Cargo Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 p-4 font-sans text-slate-900">
+    <div class="max-w-md mx-auto bg-white p-6 rounded-3xl shadow-2xl border border-slate-200">
+        <h2 class="text-2xl font-black mb-6 text-red-600 flex items-center justify-center italic">
+            <span class="bg-red-600 text-white px-3 py-1 rounded-lg mr-2 not-italic">K</span> KASPI BIZ
+        </h2>
+        
+        <div class="space-y-4">
+            <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+                <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Закуп и Логистика (Карго)</p>
+                <div>
+                    <label class="block text-xs font-bold text-slate-500">Цена закупа (₸)</label>
+                    <input type="number" id="buyPrice" value="5000" class="w-full p-2 bg-white border border-slate-300 rounded-lg mt-1 outline-none focus:ring-2 focus:ring-red-500 font-bold">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500">Вес товара (кг)</label>
+                        <input type="number" id="weight" value="0.5" step="0.1" class="w-full p-2 bg-white border border-slate-300 rounded-lg mt-1 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500">Карго за 1 кг (₸)</label>
+                        <input type="number" id="cargoPrice" value="1890" class="w-full p-2 bg-white border border-slate-300 rounded-lg mt-1 outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Амортизация (%)</label>
+                    <input type="number" id="amortization" value="2" class="w-full p-3 bg-white border border-slate-200 rounded-xl mt-1 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-400 uppercase tracking-widest">Налог ИП (%)</label>
+                    <input type="number" id="taxRate" value="4" class="w-full p-3 bg-white border border-slate-200 rounded-xl mt-1 outline-none">
+                </div>
+            </div>
+
+            <div class="py-2">
+                <div class="flex justify-between items-center mb-2">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Чистая Маржа</label>
+                    <span id="marginLabel" class="bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">15%</span>
+                </div>
+                <input type="range" id="marginRange" min="0" max="100" value="15" class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-red-600">
+            </div>
+        </div>
+
+        <div class="mt-6 space-y-2 border-t pt-6 text-sm">
+            <div class="flex justify-between text-slate-500">
+                <span>Себестоимость (Закуп+Карго):</span>
+                <span id="resTotalCost" class="font-bold text-slate-800">0 ₸</span>
+            </div>
+            <div class="flex justify-between text-slate-500">
+                <span>Доставка Kaspi (РК + 16% НДС):</span>
+                <span id="resKaspiDelivery" class="font-bold text-slate-800">0 ₸</span>
+            </div>
+            <div class="flex justify-between text-slate-500">
+                <span>Комиссия (12.5%) + Налог:</span>
+                <span id="resFees" class="font-bold text-slate-800">0 ₸</span>
+            </div>
+            
+            <div class="bg-red-600 p-5 rounded-2xl mt-6 text-white shadow-xl shadow-red-200 text-center">
+                <div class="text-[10px] opacity-70 uppercase font-black tracking-[0.2em]">Цена для Kaspi.kz</div>
+                <div id="finalPrice" class="text-4xl font-black mt-1">0 ₸</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Данные из таблицы (Колонка "Казахстан")
+        const tableRK = {
+            low: [
+                { limit: 1000, price: 49.14 },
+                { limit: 3000, price: 149.14 },
+                { limit: 5000, price: 199.14 },
+                { limit: 10000, price: 799.14 }
+            ],
+            high: [
+                { limit: 5, price: 1299.14 },
+                { limit: 15, price: 1699.14 },
+                { limit: 30, price: 3599.14 },
+                { limit: 60, price: 5649.14 },
+                { limit: 100, price: 8549.14 },
+                { limit: 9999, price: 11999.14 }
+            ]
+        };
+
+        function calculate() {
+            // Входящие
+            const buyPrice = parseFloat(document.getElementById('buyPrice').value) || 0;
+            const weight = parseFloat(document.getElementById('weight').value) || 0;
+            const cargoPricePerKg = parseFloat(document.getElementById('cargoPrice').value) || 0;
+            const amortPerc = parseFloat(document.getElementById('amortization').value) || 0;
+            const marginPerc = parseFloat(document.getElementById('marginRange').value) || 0;
+            const taxRate = parseFloat(document.getElementById('taxRate').value) || 0;
+
+            // 1. Считаем КАРГО (доставка до склада)
+            const cargoCost = weight * cargoPricePerKg;
+            
+            // 2. Базовая себестоимость товара (Закуп + Карго + Амортизация)
+            const baseCost = (buyPrice + cargoCost) * (1 + amortPerc / 100);
+            
+            // 3. Желаемая чистая прибыль
+            const netProfit = baseCost * (marginPerc / 100);
+
+            // 4. Считаем доставку KASPI (РК) из таблицы
+            // Для выбора тарифа используем примерную цену продажи
+            let kaspiPureDelivery = 0;
+            let estimatedSale = baseCost + netProfit; 
+
+            if (estimatedSale <= 10000) {
+                const row = tableRK.low.find(r => estimatedSale <= r.limit) || tableRK.low[3];
+                kaspiPureDelivery = row.price;
+            } else {
+                const row = tableRK.high.find(r => weight <= r.limit) || tableRK.high[5];
+                kaspiPureDelivery = row.price;
+            }
+
+            // Добавляем НДС 16% к доставке Kaspi
+            const kaspiDeliveryWithVat = kaspiPureDelivery * 1.16;
+
+            // 5. Итоговая формула (Обратный расчет)
+            // Итог = (Расходы + Профит) / (1 - Комиссия% - Налог%)
+            const kaspiCommission = 0.125;
+            const taxPerc = taxRate / 100;
+            
+            const totalRequired = baseCost + netProfit + kaspiDeliveryWithVat;
+            const finalPrice = totalRequired / (1 - kaspiCommission - taxPerc);
+
+            // Рендер
+            document.getElementById('marginLabel').innerText = marginPerc + '%';
+            document.getElementById('resTotalCost').innerText = Math.round(baseCost).toLocaleString() + ' ₸';
+            document.getElementById('resKaspiDelivery').innerText = Math.round(kaspiDeliveryWithVat).toLocaleString() + ' ₸';
+            document.getElementById('resFees').innerText = Math.round(finalPrice * (kaspiCommission + taxPerc)).toLocaleString() + ' ₸';
+            document.getElementById('finalPrice').innerText = Math.round(finalPrice).toLocaleString() + ' ₸';
+        }
+
+        // Слушатели
+        const inputs = ['buyPrice', 'weight', 'cargoPrice', 'amortization', 'marginRange', 'taxRate'];
+        inputs.forEach(id => document.getElementById(id).addEventListener('input', calculate));
+
+        calculate();
+    </script>
+</body>
+</html>
